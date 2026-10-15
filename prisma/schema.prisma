@@ -1,0 +1,31 @@
+// Prisma schema for SageBase.
+//
+// NOTE on pgvector: Prisma cannot model the `vector` column type, so chunk
+// embeddings live in the `document_chunks` table created by the SQL migration
+// in prisma/migrations/. All chunk reads/writes go through
+// prisma.$queryRaw / $executeRaw (see src/lib/rag.ts).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum DocumentStatus {
+  PROCESSING
+  READY
+  FAILED
+}
+
+model Document {
+  id        String         @id @default(cuid())
+  name      String
+  mimeType  String
+  status    DocumentStatus @default(PROCESSING)
+  createdAt DateTime       @default(now())
+
+  @@map("documents")
+}
