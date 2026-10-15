@@ -1,7 +1,13 @@
 import { getPrisma, isDatabaseConfigured, isAiConfigured, isDemoMode } from './db';
 import { embedQuery } from './embeddings';
-import { answerQuestion } from './llm';
+import { answerQuestion, streamAnswerQuestion, suggestFollowUps } from './llm';
 import { searchDemoChunks, mockAnswer, type DemoHit } from './demo';
+
+/**
+ * Below this confidence the UI nudges the user toward human escalation and
+ * the API auto-files a support ticket (deduplicated per conversation).
+ */
+export const LOW_CONFIDENCE_THRESHOLD = 0.45;
 
 /** One retrieved chunk, numbered for [n] citations in the answer. */
 export interface RagSource {
@@ -102,4 +108,96 @@ export async function answerWithCitations(
 
   const answer = demo ? mockAnswer(question, sources) : await answerQuestion(question, sources);
   return { answer, sources, demo };
+}
+
+/**
+ * Transparent answer-confidence heuristic: the mean of the top-3 retrieval
+ * scores, clamped to [0, 1]. Live scores are cosine similarities; demo scores
+ * are keyword-overlap ratios that can exceed 1, hence the clamp. This is
+ * deliberately simple and explainable — a portfolio talking point, not a
+ * calibrated probability.
+ */
+export function computeConfidence(sources: RagSource[]): number {
+  if (sources.length === 0) return 0;
+  const top = sources.slice(0, 3);
+  const mean = top.reduce((s, x) => s + x.score, 0) / top.length;
+  return Math.max(0, Math.min(1, mean));
+}
+
+const DEMO_FOLLOW_UPS = [
+  'How does SageBase chunk uploaded documents?',
+  'Which embedding model does SageBase use?',
+  'What is the refund window for annual plans?',
+  'How are citations shown in answers?',
+  'How does SageBase find relevant chunks for a question?',
+  'What happens when no relevant chunks are found?',
+];
+
+function demoFollowUps(question: string): string[] {
+  let h = 0;
+  for (const ch of question) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+  const out: string[] = [];
+  for (let i = 0; i < 3; i++) {
+    const pick = DEMO_FOLLOW_UPS[(h + i * 2) % DEMO_FOLLOW_UPS.length];
+    if (pick && !out.includes(pick)) out.push(pick);
+  }
+  return out;
+}
+
+/** Follow-up question chips: LLM-generated live, deterministic picks in demo. */
+export async function getFollowUps(
+  question: string,
+  answer: string,
+  demo: boolean,
+): Promise<string[]> {
+  if (demo) return demoFollowUps(question);
+  const suggestions = await suggestFollowUps(question, answer);
+  return suggestions.length > 0 ? suggestions : demoFollowUps(question);
+}
+
+export interface StreamedAnswer {
+  answer: string;
+  sources: RagSource[];
+  demo: boolean;
+  confidence: number;
+  followUps: string[];
+}
+
+/**
+ * Streaming pipeline for the support chat: retrieves, streams answer tokens
+ * via onToken, then resolves with the full result (confidence + follow-ups
+ * included). In demo mode the mock answer is emitted word-by-word.
+ */
+export async function streamAnswerWithCitations(
+  question: string,
+  onToken: (token: string) => void,
+): Promise<StreamedAnswer> {
+  const { sources, demo } = await retrieveSources(question, 5);
+  const confidence = computeConfidence(sources);
+
+  if (sources.length === 0) {
+    const answer =
+      "I couldn't find anything relevant in your documents for that question. " +
+      'Try uploading a document that covers the topic first.';
+    // Still stream the abstention so the UI path stays identical.
+    for (const word of answer.split(/(\s+)/)) {
+      if (word) onToken(word);
+      await new Promise((r) => setTimeout(r, 8));
+    }
+    return { answer, sources, demo, confidence, followUps: demoFollowUps(question) };
+  }
+
+  let answer: string;
+  if (demo) {
+    answer = mockAnswer(question, sources);
+    for (const word of answer.split(/(\s+)/)) {
+      if (word) onToken(word);
+      await new Promise((r) => setTimeout(r, 12));
+    }
+  } else {
+    answer = await streamAnswerQuestion(question, sources, onToken);
+  }
+
+  const followUps = await getFollowUps(question, answer, demo);
+  return { answer, sources, demo, confidence, followUps };
 }

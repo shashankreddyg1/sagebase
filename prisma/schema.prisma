@@ -4,6 +4,11 @@
 // embeddings live in the `document_chunks` table created by the SQL migration
 // in prisma/migrations/. All chunk reads/writes go through
 // prisma.$queryRaw / $executeRaw (see src/lib/rag.ts).
+//
+// V2 adds the support-agent layer: users with roles, persistent
+// conversations, per-message confidence + feedback, support tickets with
+// agent replies, and an API request log that feeds the admin analytics
+// dashboard. See migration 20261015000001_support_v2.
 
 generator client {
   provider = "prisma-client-js"
@@ -28,4 +33,130 @@ model Document {
   createdAt DateTime       @default(now())
 
   @@map("documents")
+}
+
+enum Role {
+  ADMIN
+  SUPPORT_AGENT
+  END_USER
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  name         String?
+  passwordHash String
+  role         Role     @default(END_USER)
+  createdAt    DateTime @default(now())
+
+  conversations Conversation[]
+  tickets       Ticket[]
+  ticketReplies TicketReply[]
+
+  @@map("users")
+}
+
+model Conversation {
+  id        String   @id @default(cuid())
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  guestId   String?
+  title     String   @default("New conversation")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  messages Message[]
+  tickets  Ticket[]
+
+  @@index([userId])
+  @@index([guestId])
+  @@map("conversations")
+}
+
+model Message {
+  id             String       @id @default(cuid())
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  role           String // "user" | "assistant" | "agent"
+  content        String
+  // JSON-serialized RagSource[] for assistant messages (citations panel).
+  sources        Json?
+  // 0..1 answer confidence for assistant messages (null for user messages).
+  confidence     Float?
+  // End-to-end handler latency in ms.
+  latencyMs      Int?
+  // JSON-serialized string[] of suggested follow-up questions.
+  followUps      Json?
+  createdAt      DateTime     @default(now())
+
+  feedback Feedback?
+
+  @@index([conversationId])
+  @@map("messages")
+}
+
+enum TicketStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+}
+
+model Ticket {
+  id             String       @id @default(cuid())
+  conversationId String?
+  conversation   Conversation? @relation(fields: [conversationId], references: [id], onDelete: SetNull)
+  userId         String?
+  user           User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
+  guestId        String?
+  status         TicketStatus @default(OPEN)
+  reason         String       @default("USER_REQUESTED")
+  summary        String
+  createdAt      DateTime     @default(now())
+  resolvedAt     DateTime?
+
+  replies TicketReply[]
+
+  @@index([status])
+  @@index([userId])
+  @@index([guestId])
+  @@map("tickets")
+}
+
+model TicketReply {
+  id        String   @id @default(cuid())
+  ticketId  String
+  ticket    Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  authorId  String?
+  author    User?    @relation(fields: [authorId], references: [id], onDelete: SetNull)
+  authorRole String   @default("SUPPORT_AGENT")
+  content   String
+  createdAt DateTime @default(now())
+
+  @@index([ticketId])
+  @@map("ticket_replies")
+}
+
+model Feedback {
+  id        String   @id @default(cuid())
+  messageId String   @unique
+  message   Message  @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  rating    Int // +1 (up) | -1 (down)
+  createdAt DateTime @default(now())
+
+  @@map("feedback")
+}
+
+model ApiLog {
+  id         String   @id @default(cuid())
+  userId     String?
+  ip         String?
+  method     String
+  path       String
+  statusCode Int
+  latencyMs  Int
+  createdAt  DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([path])
+  @@map("api_logs")
 }

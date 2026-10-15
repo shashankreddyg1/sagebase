@@ -70,13 +70,24 @@ function seedDocument(id: string, name: string, mimeType: string, text: string):
   };
 }
 
-const store: DemoDocument[] = [
-  seedDocument('demo-handbook', 'SageBase Product Handbook.md', 'text/markdown', HANDBOOK),
-  seedDocument('demo-refunds', 'Acme Cloud Refund Policy.txt', 'text/plain', REFUND_POLICY),
-];
+/**
+ * The store lives on globalThis, not module scope: Next.js bundles each API
+ * route separately, so a module-level array would be per-route and an upload
+ * via /api/documents/upload would be invisible to /api/documents.
+ */
+function store(): DemoDocument[] {
+  const g = globalThis as unknown as { __sagebaseDemoDocs?: DemoDocument[] };
+  if (!g.__sagebaseDemoDocs) {
+    g.__sagebaseDemoDocs = [
+      seedDocument('demo-handbook', 'SageBase Product Handbook.md', 'text/markdown', HANDBOOK),
+      seedDocument('demo-refunds', 'Acme Cloud Refund Policy.txt', 'text/plain', REFUND_POLICY),
+    ];
+  }
+  return g.__sagebaseDemoDocs;
+}
 
 export function listDemoDocuments() {
-  return store.map((d) => ({
+  return store().map((d) => ({
     id: d.id,
     name: d.name,
     mimeType: d.mimeType,
@@ -88,14 +99,14 @@ export function listDemoDocuments() {
 
 export function addDemoDocument(input: { name: string; mimeType: string; text: string }): DemoDocument {
   const doc = seedDocument(`demo-${Date.now()}`, input.name, input.mimeType, input.text);
-  store.unshift(doc);
+  store().unshift(doc);
   return doc;
 }
 
 export function deleteDemoDocument(id: string): boolean {
-  const i = store.findIndex((d) => d.id === id);
+  const i = store().findIndex((d) => d.id === id);
   if (i === -1) return false;
-  store.splice(i, 1);
+  store().splice(i, 1);
   return true;
 }
 
@@ -121,7 +132,7 @@ export function searchDemoChunks(query: string, topK = 5): DemoHit[] {
   if (q.size === 0) return [];
 
   const scored: DemoHit[] = [];
-  for (const doc of store) {
+  for (const doc of store()) {
     if (doc.status !== 'READY') continue;
     for (const chunk of doc.chunks) {
       const overlap = countHits(chunk.content, q);

@@ -36,6 +36,79 @@ PostgreSQL + pgvector + OpenAI embeddings & chat**.
 6. **Evaluate** — the Evals dashboard runs 5 canned Q&A pairs through the same
    pipeline and scores citation coverage + keyword recall (heuristic, demo).
 
+## V2 — AI Customer Support Agent
+
+V2 evolves the RAG knowledge base into a production-style support agent:
+streaming chat with per-answer confidence, persistent conversation history,
+thumbs up/down feedback, follow-up suggestions, low-confidence escalation into
+a human support queue, and an admin analytics dashboard.
+
+```mermaid
+graph LR
+    User["User (guest / end_user)"] --> Chat["/chat (streaming UI)"]
+    Chat --> Stream["POST /api/chat/stream (SSE)"]
+    Stream --> RAG["retrieve → stream answer → confidence"]
+    RAG --> PG[("PostgreSQL + pgvector")]
+    RAG --> Gemini["Gemini 2.5 Flash"]
+    Stream --> Conv[("conversations / messages")]
+    RAG -->|"confidence < 0.45"| Ticket["Support ticket"]
+    User -->|"talk to a human"| Ticket
+    Ticket --> Queue["/tickets queue"]
+    Agent["Support agent"] --> Queue
+    Queue -->|"reply"| Conv
+    Conv --> Analytics["/admin dashboard"]
+    Analytics --> ApiLog[("api_logs")]
+```
+
+### Features
+
+| Area | What it does |
+|---|---|
+| Auth | Credentials login with roles (`ADMIN`, `SUPPORT_AGENT`, `END_USER`); HMAC-signed HTTP-only session cookies; seeded demo logins work with zero config |
+| Conversations | Sidebar with persistent history (DB in live mode, in-memory in demo); guests get a stable anonymous identity |
+| Streaming | Answers stream token-by-token over SSE (`ReadableStream`); demo mode streams mock answers the same way |
+| Confidence | Per-answer score (mean of top-3 retrieval scores) with a UI badge; low-confidence answers auto-file a support ticket |
+| Follow-ups | 3 suggested questions per answer (LLM-generated live, deterministic picks in demo), rendered as chips |
+| Feedback | Thumbs up/down per answer, persisted; feeds the analytics dashboard |
+| Escalation | "Talk to a human" button + auto-escalation → ticket queue (`OPEN` → `IN_PROGRESS` → `RESOLVED`); agent replies are mirrored into the chat |
+| Analytics | Admin dashboard: 14-day query volume, escalation rate, avg confidence, p95 latency, feedback ratio (hand-rolled SVG charts) |
+| Ops | Per-caller rate limiting (429 + `Retry-After`) and an `api_logs` table behind every route via one `withApi` wrapper |
+
+Demo logins (work with zero config): `admin@sagebase.demo` / `admin123`,
+`agent@sagebase.demo` / `agent123`, `user@sagebase.demo` / `user123`.
+In live mode these accounts are auto-created on first login (set
+`DISABLE_DEMO_USERS=1` to turn that off).
+
+### Tradeoffs (why these choices)
+
+- **pgvector over Pinecone/Weaviate.** The corpus is small, the team is one
+  person, and the budget is zero. pgvector keeps vectors next to relational
+  data (tickets, messages) in the single Neon Postgres we already run — no
+  second service, no sync jobs, no bill. If the corpus passed ~100k chunks,
+  an `ivfflat`/`hnsw` ANN index (commented in the migration) comes before any
+  managed vector DB.
+- **Gemini free tier over OpenAI.** Same zero-spend logic: `text-embedding-004`
+  (768 dims) + `gemini-2.5-flash` via the OpenAI-compatible endpoint, so the
+  `openai` client works unchanged. The provider is one base URL + one model
+  constant away from being swapped.
+- **Streaming via raw `ReadableStream`/SSE, not a helper lib.** The protocol
+  is ~15 lines (`token` / `done` / `error` events) and the client parses it
+  with a 20-line reader loop. No dependency, full control over the `done`
+  trailer that carries sources, confidence, and follow-ups.
+- **Hand-rolled HMAC sessions instead of Auth.js.** One credentials provider
+  for three demo roles doesn't justify the dependency; scrypt + signed
+  cookies is ~80 lines with zero new packages. A real deployment with OAuth
+  providers should switch to Auth.js/Clerk — noted as the production path.
+- **In-memory rate limiting instead of Redis.** Fine for a demo and honest
+  about its limits: counters are per-instance, so it's approximate on
+  serverless. Upstash Redis is the documented upgrade.
+- **Confidence as mean top-3 retrieval score.** Deliberately simple and
+  explainable rather than calibrated — it's a triage signal for escalation,
+  not a probability. Good enough to route "uncertain" answers to humans.
+- **Demo mode mirrors every v2 table in memory.** The whole support workflow
+  (auth, tickets, analytics) is explorable with zero env vars; the analytics
+  dashboard seeds clearly-labeled sample data until real traffic exists.
+
 ## Demo mode
 
 Without `DATABASE_URL` or `GEMINI_API_KEY` the app runs fully in **demo
@@ -125,29 +198,46 @@ src/
   app/
     page.tsx               # Home: hero + how-it-works
     library/page.tsx       # Upload dropzone + document list
-    chat/page.tsx          # Chat UI with clickable citation chips
+    chat/page.tsx          # Streaming support chat + conversation sidebar
+    tickets/page.tsx       # Support-agent ticket queue
+    admin/page.tsx         # Analytics dashboard (admin only)
+    login/page.tsx         # Credentials login + demo accounts
     evals/page.tsx         # Evals dashboard
-    api/…                  # REST routes (see table above)
+    api/
+      chat/stream/route.ts # SSE streaming chat (tokens + done trailer)
+      chat/route.ts        # Non-streaming chat (kept for compat)
+      conversations/…      # Conversation + message CRUD
+      tickets/…            # Ticket queue, status, agent replies
+      feedback/route.ts    # Thumbs up/down
+      analytics/route.ts   # Admin metrics (admin only)
+      auth/…               # login / logout / me
   lib/
     chunk.ts               # 800-char / 100-overlap chunking
     pdf.ts                 # PDF text extraction
     embeddings.ts          # text-embedding-004 wrapper (Gemini native API)
-    llm.ts                 # cited-answer chat wrapper
-    rag.ts                 # pgvector retrieval + shared chat pipeline
+    llm.ts                 # cited answers + streaming + follow-up suggestions
+    rag.ts                 # pgvector retrieval, confidence, streaming pipeline
     demo.ts                # in-memory demo docs + mock answers
+    demoStore.ts           # in-memory v2 tables (conversations, tickets, …)
+    conversations.ts       # conversation/message data access (DB or demo)
+    tickets.ts             # ticket data access (DB or demo)
+    analytics.ts           # dashboard metrics (DB or demo sample data)
+    auth.ts                # scrypt passwords, HMAC sessions, demo accounts
+    api.ts                 # withApi: session + rate limit + request logging
+    ratelimit.ts           # in-memory sliding-window limiter
     evals.ts               # canned cases + heuristic scoring
     db.ts                  # lazy Prisma client + env flags
   components/
-    Navbar.tsx
+    Navbar.tsx             # links + role badge + login/logout
 ```
 
 ## Roadmap
 
-- Streaming chat responses (SSE) instead of a single JSON payload
 - Per-document and per-collection scoping for retrieval
 - Hybrid retrieval (BM25 + vector) and reranking
 - Real eval harness (LLM-as-judge) replacing the heuristic scorer
-- Auth + multi-user workspaces
+- OAuth providers via Auth.js (replacing the hand-rolled session)
+- Shared rate limiting via Upstash Redis for serverless
 
 ## Screenshots
 
