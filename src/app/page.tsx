@@ -9,7 +9,7 @@ const STEPS = [
   {
     n: '2',
     title: 'Chunk & embed',
-    body: 'Documents are split into ~800-character chunks (100-char overlap) and embedded with text-embedding-3-small.',
+    body: 'Documents are split into ~800-character chunks (100-char overlap) and embedded with text-embedding-004.',
   },
   {
     n: '3',

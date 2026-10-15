@@ -1,7 +1,7 @@
 import { chunkText } from './chunk';
 
 /**
- * Demo mode: when DATABASE_URL or OPENAI_API_KEY is missing, the app serves
+ * Demo mode: when DATABASE_URL or GEMINI_API_KEY is missing, the app serves
  * two realistic seed documents from memory, ranks chunks by keyword overlap,
  * and returns clearly-labeled mock answers. Uploaded files are kept in the
  * same ephemeral in-memory store (they vanish on restart).
@@ -38,7 +38,7 @@ Uploading documents. SageBase accepts PDF, plain text (.txt), and Markdown (.md)
 
 Chunking. Uploaded text is split into chunks of about 800 characters with a 100 character overlap between consecutive chunks, so context is never lost at chunk boundaries.
 
-Embeddings. Each chunk is embedded with OpenAI's text-embedding-3-small model, which produces 1536 dimensional vectors. Embeddings capture the semantic meaning of each chunk.
+Embeddings. Each chunk is embedded with Google's text-embedding-004 model, which produces 768 dimensional vectors. Embeddings capture the semantic meaning of each chunk.
 
 Storage and retrieval. Vectors are stored in PostgreSQL using the pgvector extension. When you ask a question, the question is embedded with the same model and SageBase retrieves the top 5 chunks by cosine similarity, using pgvector's cosine distance operator.
 

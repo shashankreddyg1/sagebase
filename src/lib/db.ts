@@ -3,15 +3,15 @@ import { PrismaClient } from '@prisma/client';
 /** True when a Postgres connection string is configured. */
 export const isDatabaseConfigured = Boolean(process.env.DATABASE_URL);
 
-/** True when an OpenAI key is configured (embeddings + chat). */
-export const isOpenAiConfigured = Boolean(process.env.OPENAI_API_KEY);
+/** True when a Gemini key is configured (embeddings + chat, free tier). */
+export const isAiConfigured = Boolean(process.env.GEMINI_API_KEY);
 
 /**
- * Demo mode kicks in when either the database or the OpenAI key is missing.
+ * Demo mode kicks in when either the database or the Gemini key is missing.
  * The app then serves in-memory seed documents and mock answers, and says so
  * in the UI banner.
  */
-export const isDemoMode = !isDatabaseConfigured || !isOpenAiConfigured;
+export const isDemoMode = !isDatabaseConfigured || !isAiConfigured;
 
 declare global {
   // eslint-disable-next-line no-var

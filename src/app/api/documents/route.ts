@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getPrisma, isDatabaseConfigured, isOpenAiConfigured } from '@/lib/db';
+import { getPrisma, isDatabaseConfigured, isAiConfigured } from '@/lib/db';
 import { listDemoDocuments } from '@/lib/demo';
 
 export const dynamic = 'force-dynamic';
@@ -11,7 +11,7 @@ interface CountRow {
 
 export async function GET() {
   const prisma = getPrisma();
-  const live = prisma !== null && isDatabaseConfigured && isOpenAiConfigured;
+  const live = prisma !== null && isDatabaseConfigured && isAiConfigured;
 
   if (!live) {
     return NextResponse.json({ demo: true, documents: listDemoDocuments() });

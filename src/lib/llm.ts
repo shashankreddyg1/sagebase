@@ -1,17 +1,25 @@
 import OpenAI from 'openai';
 import type { RagSource } from './rag';
 
-export const CHAT_MODEL = 'gpt-4o-mini';
+export const CHAT_MODEL = 'gemini-2.5-flash';
+
+/**
+ * Gemini exposes an OpenAI-compatible chat endpoint, so the `openai` client
+ * works unchanged apart from the base URL. Free tier via a Google AI Studio
+ * key (https://aistudio.google.com/apikey).
+ */
+const GEMINI_OPENAI_BASE_URL =
+  'https://generativelanguage.googleapis.com/v1beta/openai/';
 
 let client: OpenAI | null = null;
 
 function getClient(): OpenAI {
   if (!client) {
-    const apiKey = process.env.OPENAI_API_KEY;
+    const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) {
-      throw new Error('OPENAI_API_KEY is not set');
+      throw new Error('GEMINI_API_KEY is not set');
     }
-    client = new OpenAI({ apiKey });
+    client = new OpenAI({ apiKey, baseURL: GEMINI_OPENAI_BASE_URL });
   }
   return client;
 }

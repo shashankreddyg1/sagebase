@@ -1,4 +1,4 @@
-import { getPrisma, isDatabaseConfigured, isOpenAiConfigured, isDemoMode } from './db';
+import { getPrisma, isDatabaseConfigured, isAiConfigured, isDemoMode } from './db';
 import { embedQuery } from './embeddings';
 import { answerQuestion } from './llm';
 import { searchDemoChunks, mockAnswer, type DemoHit } from './demo';
@@ -46,7 +46,7 @@ export async function retrieveSources(
 ): Promise<{ sources: RagSource[]; demo: boolean }> {
   const prisma = getPrisma();
 
-  if (isDemoMode || !prisma || !isDatabaseConfigured || !isOpenAiConfigured) {
+  if (isDemoMode || !prisma || !isDatabaseConfigured || !isAiConfigured) {
     return { demo: true, sources: toRagSources(searchDemoChunks(question, topK)) };
   }
 

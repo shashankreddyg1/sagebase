@@ -16,7 +16,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <Navbar />
         {isDemoMode && (
           <div className="border-b border-amber-500/30 bg-amber-500/10 px-4 py-2 text-center text-sm text-amber-200">
-            Demo mode — no DATABASE_URL or OPENAI_API_KEY detected. Serving in-memory
+            Demo mode — no DATABASE_URL or GEMINI_API_KEY detected. Serving in-memory
             documents with mock answers.
           </div>
         )}

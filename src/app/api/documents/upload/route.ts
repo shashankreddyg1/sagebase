@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { randomUUID } from 'crypto';
-import { getPrisma, isDatabaseConfigured, isOpenAiConfigured } from '@/lib/db';
+import { getPrisma, isDatabaseConfigured, isAiConfigured } from '@/lib/db';
 import { chunkText } from '@/lib/chunk';
 import { extractPdfText } from '@/lib/pdf';
 import { embedTexts } from '@/lib/embeddings';
@@ -48,13 +48,13 @@ export async function POST(req: NextRequest) {
   }
 
   const prisma = getPrisma();
-  const live = prisma !== null && isDatabaseConfigured && isOpenAiConfigured;
+  const live = prisma !== null && isDatabaseConfigured && isAiConfigured;
 
   if (!live) {
     const doc = addDemoDocument({ name, mimeType: file.type || `text/${ext}`, text });
     return NextResponse.json({
       demo: true,
-      note: 'Demo mode: document stored ephemerally in memory (no DATABASE_URL / OPENAI_API_KEY).',
+      note: 'Demo mode: document stored ephemerally in memory (no DATABASE_URL / GEMINI_API_KEY).',
       document: {
         id: doc.id,
         name: doc.name,

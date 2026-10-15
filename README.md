@@ -27,7 +27,7 @@ PostgreSQL + pgvector + OpenAI embeddings & chat**.
 
 1. **Upload** — drop a PDF, `.txt`, or `.md` file in the Library.
 2. **Chunk & embed** — text is split into ~800-character chunks (100-char
-   overlap) and embedded with `text-embedding-3-small` (1536 dims).
+   overlap) and embedded with `text-embedding-004` (768 dims, Gemini free tier).
 3. **Store** — chunks + vectors land in Postgres via the pgvector extension.
 4. **Retrieve** — each question is embedded and matched with cosine similarity
    (`<=>`) against stored chunks; the top 5 become cited sources.
@@ -38,7 +38,7 @@ PostgreSQL + pgvector + OpenAI embeddings & chat**.
 
 ## Demo mode
 
-Without `DATABASE_URL` or `OPENAI_API_KEY` the app runs fully in **demo
+Without `DATABASE_URL` or `GEMINI_API_KEY` the app runs fully in **demo
 mode**: two realistic seed documents live in memory, uploads are kept
 ephemerally in memory, retrieval uses keyword-overlap ranking, and answers are
 clearly-labeled mock responses. A banner at the top of every page says so.
@@ -111,8 +111,9 @@ Chat response shape:
 - Retrieval uses an exact cosine scan (`ORDER BY embedding <=> $1 LIMIT 5`).
   Past ~100k chunks, add an ANN index (`ivfflat` / `hnsw`) — see the comment
   in the migration file.
-- Embeddings are stored at 1536 dims to match `text-embedding-3-small`. If you
-  switch models, recreate the column with the new dimension.
+- Embeddings are stored at 768 dims to match `text-embedding-004`. If you
+  switch models, recreate the column with the new dimension (see the
+  `gemini_768` migration for the pattern).
 
 ## Project structure
 
@@ -130,7 +131,7 @@ src/
   lib/
     chunk.ts               # 800-char / 100-overlap chunking
     pdf.ts                 # PDF text extraction
-    embeddings.ts          # text-embedding-3-small wrapper
+    embeddings.ts          # text-embedding-004 wrapper (Gemini native API)
     llm.ts                 # cited-answer chat wrapper
     rag.ts                 # pgvector retrieval + shared chat pipeline
     demo.ts                # in-memory demo docs + mock answers

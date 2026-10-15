@@ -29,7 +29,7 @@ export const EVAL_CASES: EvalCase[] = [
   {
     id: 'embeddings',
     question: 'Which embedding model does SageBase use and what is its dimension?',
-    expectedKeywords: ['text-embedding-3-small', '1536'],
+    expectedKeywords: ['text-embedding-004', '768'],
   },
   {
     id: 'refunds',
