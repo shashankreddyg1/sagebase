@@ -1,7 +1,7 @@
 import { createHmac, randomBytes, scrypt as _scrypt, timingSafeEqual } from 'crypto';
 import { promisify } from 'util';
 import type { NextRequest } from 'next/server';
-import { getPrisma, isDatabaseConfigured } from './db';
+import { getPrisma, isDatabaseConfigured, isDemoMode } from './db';
 
 const scrypt = promisify(_scrypt);
 
@@ -161,21 +161,10 @@ export async function verifyCredentials(
   password: string,
 ): Promise<Omit<Session, 'role'> & { role: Role } | null> {
   const demo = findDemoAccount(email);
-  if (demo) {
-    const prisma = getPrisma();
-    if (prisma) {
-      const user = (await ensureDemoUser(demo)) ?? (await prisma.user.findUnique({ where: { email: demo.email } }));
-      if (!user) return null;
-      if (!(await verifyPassword(password, user.passwordHash))) return null;
-      return {
-        userId: user.id,
-        guestId: null,
-        email: user.email,
-        name: user.name,
-        role: user.role as Role,
-      };
-    }
-    // Demo mode (no DB): check the plain demo password directly.
+  // Demo mode: never touch the database — plain in-memory check. (The app can
+  // be DB-configured yet still in demo mode when the AI key is missing; DB
+  // round-trips must not gate demo logins.)
+  if (demo && isDemoMode) {
     if (password !== demo.password) return null;
     return {
       userId: `demo-${demo.role.toLowerCase()}`,
@@ -183,6 +172,21 @@ export async function verifyCredentials(
       email: demo.email,
       name: demo.name,
       role: demo.role,
+    };
+  }
+  if (demo) {
+    // Live mode here (demo mode returned above): DB is configured.
+    const prisma = getPrisma();
+    if (!prisma) return null;
+    const user = (await ensureDemoUser(demo)) ?? (await prisma.user.findUnique({ where: { email: demo.email } }));
+    if (!user) return null;
+    if (!(await verifyPassword(password, user.passwordHash))) return null;
+    return {
+      userId: user.id,
+      guestId: null,
+      email: user.email,
+      name: user.name,
+      role: user.role as Role,
     };
   }
 

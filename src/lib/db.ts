@@ -19,11 +19,13 @@ declare global {
 }
 
 /**
- * Lazily create the Prisma client. Returns null when no DATABASE_URL is set,
- * so importing this module never throws in demo mode.
+ * Lazily create the Prisma client. Returns null in demo mode (no DATABASE_URL
+ * or no GEMINI_API_KEY) so the app is fully in-memory and never touches the
+ * database then — importing this module never throws, and demo logins, chat,
+ * tickets, etc. all work with zero config.
  */
 export function getPrisma(): PrismaClient | null {
-  if (!isDatabaseConfigured) return null;
+  if (isDemoMode) return null;
   if (!global.__sagebasePrisma) {
     global.__sagebasePrisma = new PrismaClient();
   }
