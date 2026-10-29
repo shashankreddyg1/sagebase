@@ -2,6 +2,7 @@
 
 import { Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
+import FadeIn from '@/components/FadeIn';
 
 interface Source {
   index: number;
@@ -354,10 +355,12 @@ function ChatInner() {
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-10">
-      <h1 className="mb-1 text-3xl font-bold">Support chat</h1>
-      <p className="mb-6 text-slate-400">
-        Answers stream in with citations, a confidence score, and follow-ups.
-      </p>
+      <FadeIn>
+        <h1 className="mb-1 text-3xl font-bold">Support chat</h1>
+        <p className="mb-6 text-slate-400">
+          Answers stream in with citations, a confidence score, and follow-ups.
+        </p>
+      </FadeIn>
 
       {notice && (
         <div className="mb-4 rounded-xl border border-sky-500/30 bg-sky-500/10 px-4 py-3 text-sm text-sky-200">

@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState, type DragEvent } from 'react';
+import FadeIn from '@/components/FadeIn';
 
 interface DocItem {
   id: string;
@@ -78,7 +79,7 @@ export default function LibraryPage() {
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-10">
-      <div className="mb-6 flex items-end justify-between">
+      <FadeIn className="mb-6 flex items-end justify-between">
         <div>
           <h1 className="text-3xl font-bold">Library</h1>
           <p className="mt-1 text-slate-400">
@@ -91,7 +92,7 @@ export default function LibraryPage() {
             demo storage
           </span>
         )}
-      </div>
+      </FadeIn>
 
       <div
         onDragOver={(e) => {

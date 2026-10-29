@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import FadeIn from '@/components/FadeIn';
 
 const STEPS = [
   {
@@ -36,7 +37,7 @@ const STACK = [
 export default function HomePage() {
   return (
     <div className="mx-auto max-w-6xl px-4">
-      <section className="py-20 text-center">
+      <FadeIn className="py-20 text-center bg-[radial-gradient(600px_300px_at_50%_-50px,rgba(16,185,129,0.12),transparent_70%)]">
         <p className="mb-4 inline-block rounded-full border border-emerald-500/30 bg-emerald-500/10 px-4 py-1 text-sm text-emerald-300">
           Retrieval-Augmented Generation starter
         </p>
@@ -62,24 +63,26 @@ export default function HomePage() {
             Try the chat
           </Link>
         </div>
-      </section>
+      </FadeIn>
 
       <section className="py-10">
         <h2 className="mb-8 text-center text-2xl font-bold">How it works</h2>
         <div className="grid gap-4 md:grid-cols-4">
-          {STEPS.map((s) => (
-            <div key={s.n} className="rounded-xl border border-slate-800 bg-slate-900/60 p-5">
+          {STEPS.map((s, i) => (
+            <FadeIn key={s.n} delay={i * 0.07}>
+            <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-5 transition-colors hover:border-slate-700">
               <div className="mb-3 flex h-8 w-8 items-center justify-center rounded-full bg-emerald-500/15 font-bold text-emerald-300">
                 {s.n}
               </div>
               <h3 className="mb-2 font-semibold">{s.title}</h3>
               <p className="text-sm text-slate-400">{s.body}</p>
             </div>
+            </FadeIn>
           ))}
         </div>
       </section>
 
-      <section className="py-10 text-center">
+      <FadeIn delay={0.15} className="py-10 text-center">
         <h2 className="mb-6 text-2xl font-bold">Built with</h2>
         <div className="flex flex-wrap justify-center gap-2">
           {STACK.map((t) => (
@@ -96,7 +99,7 @@ export default function HomePage() {
           documents, keyword-based retrieval, and clearly-labeled mock answers — so the full
           UI works out of the box.
         </p>
-      </section>
+      </FadeIn>
     </div>
   );
 }

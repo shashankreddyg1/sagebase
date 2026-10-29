@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import FadeIn from '@/components/FadeIn';
 
 interface EvalCase {
   id: string;
@@ -94,7 +95,7 @@ export default function EvalsPage() {
       )}
 
       {lastRun && (
-        <div className="mb-6 grid grid-cols-3 gap-4">
+        <FadeIn className="mb-6 grid grid-cols-3 gap-4">
           <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-4">
             <p className="text-xs text-slate-500">Average score</p>
             <p className="text-2xl font-bold text-emerald-300">{pct(lastRun.averageScore)}</p>
@@ -109,7 +110,7 @@ export default function EvalsPage() {
             <p className="text-xs text-slate-500">Mode</p>
             <p className="text-2xl font-bold">{lastRun.demo ? 'Demo' : 'Live'}</p>
           </div>
-        </div>
+        </FadeIn>
       )}
 
       <div className="space-y-3">
